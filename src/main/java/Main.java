@@ -1,32 +1,104 @@
 import java.util.Arrays;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class Main {
     public static void main(String[] args) throws InterruptedException {
-        int[] array = {10, 5, 1, 6, 2, 3, 4, 10, 5, 1, 22, 523, 21, 13, 43, 22};
+        int[] array = {10, 5, 1, 6, 2};
 
-        sortArrray(array);
+        //sortArrray(array);
 
-        System.out.println(Arrays.toString(array));
+        System.out.println(Arrays.toString(sortArrray(array)));
     }
 
     /**
-     * Sorting using merge sort with threads. Thread couldn't sort more than 10 elements.
-     * If there are more than 10 elemets in array, it will devided into 2 parts, which will be processed by different
-     * threads.
+     * Sort array using multithreading and mergesort.
+     * If nearby elements from unsorted array could be grouped in pairs they will be processed by separate thread
      *
-     * @param array - Main array before sorting
-     * @return sorted array
+     * @param array - Unsorted array.
+     * @return Sorted array.
      * @throws InterruptedException
      */
-    public static void sortArrray(int[] array) throws InterruptedException {
-        if (array.length <= 10) {
-            MyMergeSort.mergeSort(array, array.length);
-        } else {
-            ExecutorService executorService = Executors.newFixedThreadPool(10);
-            MyMergeSort.mergeSort(array, array.length, executorService);
-            executorService.shutdown();
+    public static int[] sortArrray(int[] array) throws InterruptedException {
+        ExecutorService executorService = Executors.newFixedThreadPool(10);
+        int subArraysLength = 1;
+        int pairLength = 2;
+        boolean sorted = false;
+        // elements which not in subarray with same length pair.
+        int unincludedElements = (array.length % 2 == 0) ? 0 : 1;
+
+        while (!sorted && unincludedElements != array.length) {
+
+            CountDownLatch countDownLatch = new CountDownLatch((array.length - unincludedElements) / pairLength);
+            int pair;
+
+            for (pair = 0; pair < (array.length - unincludedElements) / pairLength; pair++) {
+
+                int[] leftSubArray = new int[subArraysLength];
+                int[] rightSubArray = new int[subArraysLength];
+
+                System.arraycopy(array, pairLength * pair, leftSubArray, 0, subArraysLength);
+                System.arraycopy(array, pairLength * pair + subArraysLength, rightSubArray, 0, subArraysLength);
+
+                System.out.println(Arrays.toString(leftSubArray));
+                System.out.println(Arrays.toString(rightSubArray));
+
+                // this fields are only for lambda expression
+                int finalPair = pair;
+                int finalPairLength = pairLength;
+                executorService.submit(() -> {
+                    MyMergeSort.merge(array, leftSubArray, rightSubArray, finalPair * finalPairLength);
+
+                    countDownLatch.countDown();
+                });
+            }
+            // wait untill all pairs complete merging
+            countDownLatch.await();
+
+            // for example there was an array of 10 alements, after 1 circle there will be 4 pairs with 2 el and 2 without pair
+            if (unincludedElements == 0) {
+                unincludedElements = array.length - pairLength * pair;
+            }
+
+            // after all threads have alredy sorted pairs with merging we need to merge unincluded elements with last sorted pair(subpair)
+            if (unincludedElements != 0) {
+
+                if (pair == 0) {
+                    pair++;
+                    pairLength /= 2;
+                    sorted = true;
+                }
+
+                int[] leftSubArray;
+                int[] rightSubArray;
+
+                if (array.length - pair * pairLength == unincludedElements) {
+                    leftSubArray = new int[pairLength];
+                    rightSubArray = new int[unincludedElements];
+
+                    System.arraycopy(array, pairLength * (pair - 1), leftSubArray, 0, pairLength);
+                    System.arraycopy(array, pairLength * (pair - 1) + pairLength, rightSubArray, 0, unincludedElements);
+
+                    MyMergeSort.merge(array, leftSubArray, rightSubArray, (pair - 1) * pairLength);
+                } else {
+                    leftSubArray = new int[pairLength / 2];
+                    rightSubArray = new int[unincludedElements];
+
+                    System.arraycopy(array, pairLength * pair, leftSubArray, 0, pairLength / 2);
+                    System.arraycopy(array, pairLength * pair + pairLength / 2, rightSubArray, 0, unincludedElements);
+
+                    MyMergeSort.merge(array, leftSubArray, rightSubArray, pair * pairLength);
+                }
+
+                unincludedElements = leftSubArray.length + rightSubArray.length;
+            }
+            System.out.println("Circle completed. Merging sorted pairs...");
+
+            subArraysLength *= 2;
+            pairLength *= 2;
         }
+        executorService.shutdown();
+        return array;
     }
 }
