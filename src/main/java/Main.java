@@ -14,7 +14,7 @@ public class Main {
 
     /**
      * Sort array using multithreading and mergesort.
-     * If nearby elements from unsorted array could be grouped in pairs they will be processed by separate thread
+     * If nearby elements from unsorted array could be grouped in pairs they will be processed by separate thread.
      *
      * @param array - Unsorted array.
      * @return Sorted array.
@@ -31,6 +31,7 @@ public class Main {
         while (!sorted && unincludedElements != array.length) {
 
             CountDownLatch countDownLatch = new CountDownLatch((array.length - unincludedElements) / pairLength);
+            // subarrays are paired up for merging
             int pair;
 
             for (pair = 0; pair < (array.length - unincludedElements) / pairLength; pair++) {
@@ -49,7 +50,6 @@ public class Main {
                 int finalPairLength = pairLength;
                 executorService.submit(() -> {
                     MyMergeSort.merge(array, leftSubArray, rightSubArray, finalPair * finalPairLength);
-
                     countDownLatch.countDown();
                 });
             }
@@ -82,11 +82,11 @@ public class Main {
 
                     MyMergeSort.merge(array, leftSubArray, rightSubArray, (pair - 1) * pairLength);
                 } else {
-                    leftSubArray = new int[pairLength / 2];
+                    leftSubArray = new int[subArraysLength];
                     rightSubArray = new int[unincludedElements];
 
-                    System.arraycopy(array, pairLength * pair, leftSubArray, 0, pairLength / 2);
-                    System.arraycopy(array, pairLength * pair + pairLength / 2, rightSubArray, 0, unincludedElements);
+                    System.arraycopy(array, pairLength * pair, leftSubArray, 0, subArraysLength);
+                    System.arraycopy(array, pairLength * pair + subArraysLength, rightSubArray, 0, unincludedElements);
 
                     MyMergeSort.merge(array, leftSubArray, rightSubArray, pair * pairLength);
                 }
